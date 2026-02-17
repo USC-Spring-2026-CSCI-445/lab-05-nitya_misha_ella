@@ -121,9 +121,18 @@ class GoalPositionController:
         self.goal_position = goal_position
         self.current_position = None
 
-        # define PID controllers for linear and angular velocities
+        # TODO: define PID controllers for linear and angular velocities
         ######### Your code starts here #########
-        
+        kP = 0.8
+        kD = 0.03
+        kI = 0.01
+        kS = 0.4
+        u_min = -1.5
+        u_max = 1.5
+
+        self.angular_controller = PIDController(kP, kI, kD, kS, u_min, u_max)
+       
+        self.v0 = 0.2 #base forward velocity
         
         ######### Your code ends here #########
 
@@ -141,7 +150,18 @@ class GoalPositionController:
 
         # Calculate error in position and orientation
         ######### Your code starts here #########
+        
+        dx = self.goal_position["x"] - self.current_position["x"]
+        dy = self.goal_position["y"] - self.current_position["y"]
+        
+        #dist = sqrt(dx^2 + dy^2)
+        distance_error = math.sqrt(dx**2+dy**2)
+        
+        #angle = arctan(dy/dx)
+        goal_angle = math.atan2(dy, dx)
+        current_angle = self.current_position["theta"]
 
+        angle_error = goal_angle - current_angle
         ######### Your code ends here #########
 
         # Ensure angle error is within -pi to pi range
@@ -164,7 +184,24 @@ class GoalPositionController:
 
             # Calculate control commands using linear and angular PID controllers and stop if close enough to goal
             ######### Your code starts here #########
-
+            #ctrl_msg.linear.x = forward, backward
+            #ctrl_msg.angular.z = rotation
+            
+                        
+            t = rospy.get_time()
+            
+            
+            #if error is small
+            if abs(distance_error) < 0.05:
+                ctrl_msg.linear.x = 0.0
+                ctrl_msg.angular.z = 0.0
+            else:
+                omega = self.angular_controller.control(angle_error, t) #calls the control method in the PID controller class that internally computes ω = kP*error + kI*integral + kD*derivative
+                ctrl_msg.angular.z = omega
+                ctrl_msg.linear.x = self.v0
+            
+            #publish
+            self.vel_pub.publish(ctrl_msg)
 
             ######### Your code ends here #########
 
@@ -187,7 +224,17 @@ class GoalAngleController:
 
         # define PID controller angular velocity
         ######### Your code starts here #########
+        
+        
+         # Reduced gains for real hardware (less noisy than sim)
+        kP = 0.8
+        kD = 0.03
+        kI = 0.01
+        kS = 0.4
+        u_min = -1.5
+        u_max = 1.5
 
+        self.angular_controller = PIDController(kP, kI, kD, kS, u_min, u_max)
         ######### Your code ends here #########
 
     def odom_callback(self, msg):
@@ -204,7 +251,8 @@ class GoalAngleController:
 
         # Calculate error in orientation
         ######### Your code starts here #########
-
+        current_angle = self.current_position["theta"] #current position encodes x, y, theta
+        angle_error = self.goal_angle - current_angle
         ######### Your code ends here #########
 
         # Ensure angle error is within -pi to pi range
@@ -223,9 +271,28 @@ class GoalAngleController:
             if angle_error is None:
                 continue
 
-            # Calculate control commands using angular PID controller and stop if close enough to goal
+            # TODO: Calculate control commands using angular PID controller and stop if close enough to goal
             ######### Your code starts here #########
+            #ctrl_msg.linear.x = forward, backward
+            #ctrl_msg.angular.z = rotation
+            
+            #no forward or backward anytime
+            ctrl_msg.linear.x = 0.0
+            
+            t = rospy.get_time()
+            
+            
+            #if error is small
+            if abs(angle_error) < 0.01:
+                ctrl_msg.angular.z = 0.0
+            else:
+                omega = self.angular_controller.control(angle_error, t) #calls the control method in the PID controller class that internally computes ω = kP*error + kI*integral + kD*derivative
 
+                ctrl_msg.angular.z = omega
+            
+            #publish
+            self.vel_pub.publish(ctrl_msg)
+            
             ######### Your code ends here #########
 
             rate.sleep()
