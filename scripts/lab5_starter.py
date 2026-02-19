@@ -123,7 +123,7 @@ class GoalPositionController:
 
         # TODO: define PID controllers for linear and angular velocities
         ######### Your code starts here #########
-        kP = 0.8
+        kP = 2.0
         kD = 0.03
         kI = 0.01
         kS = 0.4
